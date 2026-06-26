@@ -41,7 +41,7 @@ canvas{display:block}
 #ab-beam{right:0;bottom:0;background:rgba(0,180,255,.15);border-color:rgba(0,180,255,.4);color:#0bf}
 .ab-icon{font-size:20px;line-height:1}
 .ab-lbl{font-size:9px;opacity:.7}
-@media(hover:none)and(pointer:coarse){#touch{display:block}#hint{display:none}}
+@media(hover:none)and(pointer:coarse),screen and (max-width:1024px) and (orientation:landscape),screen and (max-width:768px){#touch{display:block}#hint{display:none}}
 </style>
 </head>
 <body>
@@ -82,7 +82,7 @@ const G=.6,GYR=.82,STAGES=4;
 let state='title',score=0,stage=1,camX=0,stageLen=8000,
     particles=[],explosions=[],shake=0,
     objects=[],enemies=[],projectiles=[],boss=null,kaiju=null,stageType='city',
-    warningTimer=0,warningShown=false;
+    warningTimer=0,warningShown=false,bossActive=false;
 function gy(){return CV.height*GYR}
 function srand(s){return()=>{s=Math.sin(s)*10000;return s-Math.floor(s)}}
 function lerp(a,b,t){return a+(b-a)*t}
@@ -430,7 +430,7 @@ function beamBox(k){return{x:k.facing>0?k.x+k.w:k.x-420,y:k.y-10,w:420,h:50}}
 // ===== Stage Gen =====
 function genStage(s){
   objects=[];enemies=[];projectiles=[];boss=null;particles=[];explosions=[];camX=0;
-  warningTimer=0;warningShown=false;
+  warningTimer=0;warningShown=false;bossActive=false;
   stageLen=6000+s*2000;const g=gy();
   stageType=s===2?'ocean':'city';
 
@@ -482,6 +482,11 @@ touchBinds.forEach(([id,code])=>{
   el.addEventListener('touchend',e=>{e.preventDefault();el.classList.remove('act');K[code]=false},{passive:false});
   el.addEventListener('touchcancel',e=>{e.preventDefault();el.classList.remove('act');K[code]=false},{passive:false});
 });
+// Force show touch controls on touch-capable devices
+if('ontouchstart' in window||navigator.maxTouchPoints>0){
+  document.getElementById('touch').style.display='block';
+  const h=document.getElementById('hint');if(h)h.style.display='none';
+}
 
 // ===== Update =====
 function update(){
@@ -560,13 +565,15 @@ function update(){
   });
 
   // Boss warning
-  if(boss&&boss.hp>0&&!warningShown&&kaiju.x>boss.x-700){
-    warningShown=true;warningTimer=180; // 3 seconds at 60fps
+  // Boss warning — trigger based on fixed stage position, not moving boss
+  if(boss&&boss.hp>0&&!warningShown&&kaiju.x>stageLen-1200){
+    warningShown=true;warningTimer=180;
   }
   if(warningTimer>0)warningTimer--;
+  if(warningShown&&warningTimer<=0)bossActive=true;
 
-  // Boss AI
-  if(boss&&boss.hp>0){
+  // Boss AI — only after warning completes
+  if(boss&&boss.hp>0&&bossActive){
     const dx=kaiju.x-boss.x,dist=Math.abs(dx);if(boss.invincible>0)boss.invincible--;
     boss.phase=boss.hp<boss.maxHp*.4?2:1;
     if(!boss.attacking){
